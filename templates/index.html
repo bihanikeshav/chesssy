@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChessCoach</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="topbar">
+    <div class="topbar-brand">ChessCoach</div>
+    <div class="topbar-import">
+        <input type="text" id="import-input" placeholder="Paste a Lichess / Chess.com URL, PGN, or FEN..." spellcheck="false">
+        <button id="btn-import" class="btn btn-accent">Import</button>
+    </div>
+    <div class="topbar-settings">
+        <div class="rating-control">
+            <span class="rating-label">ELO</span>
+            <input type="range" id="rating-slider" min="800" max="2000" step="50" value="1200">
+            <span id="rating-value" class="rating-num">1200</span>
+        </div>
+        <div class="skill-toggle">
+            <button id="btn-beginner" onclick="setSkillLevel('beginner')">Beginner</button>
+            <button id="btn-intermediate" class="active" onclick="setSkillLevel('intermediate')">Intermediate</button>
+        </div>
+    </div>
+</header>
+
+<!-- Main Layout -->
+<main class="layout">
+
+    <!-- Left: Board + Move List -->
+    <section class="board-section">
+        <div class="board-top">
+            <div class="player-bar player-top" id="player-top">
+                <span class="player-name" id="player-top-name">Black</span>
+            </div>
+        </div>
+
+        <div class="board-with-eval">
+            <div class="eval-bar" id="eval-bar">
+                <div class="eval-fill" id="eval-fill"></div>
+                <span class="eval-label" id="eval-label">0.0</span>
+            </div>
+            <div class="board-wrap">
+                <div id="board"></div>
+            </div>
+        </div>
+
+        <div class="board-bottom">
+            <div class="player-bar player-bottom" id="player-bottom">
+                <span class="player-name" id="player-bottom-name">White</span>
+            </div>
+        </div>
+
+        <div class="board-toolbar">
+            <button id="btn-flip" class="btn btn-sm" title="Flip board (F)">⇅ Flip</button>
+            <button id="btn-reset" class="btn btn-sm" title="New game">↺ Reset</button>
+            <button id="btn-undo" class="btn btn-sm" title="Undo">← Undo</button>
+            <span class="toolbar-sep"></span>
+            <span id="status-text" class="status-text">Ready</span>
+        </div>
+
+        <!-- Move List -->
+        <div class="movelist-area" id="movelist-area">
+            <div class="movelist-header">
+                <span class="game-info" id="game-info"></span>
+            </div>
+            <div class="movelist" id="move-list"></div>
+            <div class="movelist-nav" id="movelist-nav">
+                <button id="btn-first" class="btn btn-sm">⏮</button>
+                <button id="btn-prev" class="btn btn-sm">◀</button>
+                <button id="btn-next" class="btn btn-sm">▶</button>
+                <button id="btn-last" class="btn btn-sm">⏭</button>
+                <div class="nav-spacer"></div>
+                <button id="btn-analyze-game" class="btn btn-accent btn-sm">Analyze Game</button>
+            </div>
+        </div>
+
+        <!-- Engine Lines (compact, below board) -->
+        <div class="engine-lines-area">
+            <div class="engine-header">
+                <span class="section-label">Engine</span>
+                <span id="engine-depth" class="depth-badge"></span>
+            </div>
+            <div id="engine-lines" class="engine-lines">
+                <div class="engine-placeholder"><span class="dot-loader"></span></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Right: Analysis Panel -->
+    <section class="analysis-section">
+        <div class="panel-tabs">
+            <button class="tab active" data-tab="analysis" id="tab-analysis">Analysis</button>
+            <button class="tab" data-tab="coach" id="tab-coach">Coach Report</button>
+        </div>
+
+        <!-- Analysis Tab -->
+        <div class="tab-content active" id="panel-analysis">
+            <div id="analysis-loading" class="analysis-loading" style="display:none;">
+                <div class="skeleton skeleton-title"></div>
+                <div class="skeleton skeleton-bar"></div>
+                <div class="skeleton skeleton-text"></div>
+                <div class="skeleton skeleton-text short"></div>
+            </div>
+
+            <div id="analysis-content" style="display:none;">
+                <div class="move-header">
+                    <span class="move-notation" id="move-san"></span>
+                    <span class="quality-pill" id="quality-pill"></span>
+                </div>
+
+                <div class="eval-change" id="eval-change">
+                    <div class="eval-box">
+                        <span class="eval-tiny-label">Before</span>
+                        <span class="eval-num" id="eval-before"></span>
+                    </div>
+                    <span class="eval-arrow">→</span>
+                    <div class="eval-box">
+                        <span class="eval-tiny-label">After</span>
+                        <span class="eval-num" id="eval-after"></span>
+                    </div>
+                    <span class="cp-loss-badge" id="cp-loss" style="display:none;"></span>
+                </div>
+
+                <div class="find-meter" id="find-meter">
+                    <div class="find-meter-header">
+                        <span>Findability</span>
+                        <span id="find-pct" class="find-pct"></span>
+                    </div>
+                    <div class="find-track">
+                        <div class="find-bar" id="find-bar"></div>
+                    </div>
+                    <span class="find-hint" id="find-hint"></span>
+                </div>
+
+                <div class="explanation" id="explanation"></div>
+
+                <div class="suggestion-box" id="suggestion-box" style="display:none;">
+                    <span class="suggestion-icon">💡</span>
+                    <span id="suggestion-text"></span>
+                </div>
+
+                <div class="threats-compact" id="threats-area" style="display:none;">
+                    <span class="section-label">Tactics</span>
+                    <div id="threats-list" class="threats-list"></div>
+                </div>
+            </div>
+
+            <div id="analysis-empty" class="empty-state">
+                <div class="empty-icon">♞</div>
+                <p>Play a move or import a game</p>
+                <p class="empty-hint">Use arrow keys to navigate</p>
+            </div>
+        </div>
+
+        <!-- Coach Tab -->
+        <div class="tab-content" id="panel-coach">
+            <div id="coach-empty" class="empty-state">
+                <div class="empty-icon">🎓</div>
+                <p>Load a game and click "Analyze Game"</p>
+                <p class="empty-hint">The coach will review your moves and suggest improvements</p>
+            </div>
+
+            <div id="coach-loading" style="display:none;">
+                <div class="coach-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="coach-progress-fill"></div>
+                    </div>
+                    <span class="progress-label" id="coach-progress-label">Analyzing moves...</span>
+                </div>
+            </div>
+
+            <div id="coach-report" style="display:none;">
+                <div class="coach-summary">
+                    <div class="accuracy-ring" id="accuracy-ring">
+                        <svg viewBox="0 0 100 100">
+                            <circle class="ring-bg" cx="50" cy="50" r="42"/>
+                            <circle class="ring-fg" id="ring-fg" cx="50" cy="50" r="42"/>
+                        </svg>
+                        <span class="ring-label" id="accuracy-pct"></span>
+                    </div>
+                    <div class="summary-stats">
+                        <div class="stat-row"><span class="dot best"></span><span>Best</span><span id="stat-best" class="stat-num">0</span></div>
+                        <div class="stat-row"><span class="dot good"></span><span>Good</span><span id="stat-good" class="stat-num">0</span></div>
+                        <div class="stat-row"><span class="dot inaccuracy"></span><span>Inaccuracy</span><span id="stat-inaccuracy" class="stat-num">0</span></div>
+                        <div class="stat-row"><span class="dot mistake"></span><span>Mistake</span><span id="stat-mistake" class="stat-num">0</span></div>
+                        <div class="stat-row"><span class="dot blunder"></span><span>Blunder</span><span id="stat-blunder" class="stat-num">0</span></div>
+                    </div>
+                </div>
+
+                <div id="coach-moments" class="coach-moments"></div>
+
+                <div id="coach-patterns" class="coach-patterns"></div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- Toast container -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- Promotion dialog -->
+<div class="overlay" id="promotion-overlay">
+    <div class="dialog">
+        <h3>Promote to</h3>
+        <div class="promotion-pieces" id="promotion-pieces"></div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

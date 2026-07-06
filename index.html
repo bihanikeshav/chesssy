@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chesssy</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600&family=Pacifico&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/lib/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="topbar">
+    <div class="topbar-brand">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="brand-icon"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 16l-1.447 .724a1 1 0 0 0 -.553 .894v2.382h12v-2.382a1 1 0 0 0 -.553 -.894l-1.447 -.724h-8" /><path d="M9 3l1 3l-3.491 2.148a1 1 0 0 0 .524 1.852h2.967l-2.073 6h7.961l.112 -5c0 -3 -1.09 -5.983 -4 -7c-1.94 -.678 -2.94 -1.011 -3 -1" /></svg>
+        <span class="brand-chess">Chess</span><span class="brand-sy">sy</span>
+    </div>
+    <div class="topbar-import">
+        <input type="text" id="import-input" placeholder="Import from URL, PGN, FEN" spellcheck="false" autocomplete="off">
+        <button id="btn-import" class="btn btn-accent">Import</button>
+    </div>
+    <div class="topbar-right">
+        <div class="skill-toggle">
+            <button data-level="beginner" data-rating="900">
+                <span class="level-name">Beginner</span>
+                <span class="level-range">&lt;1000</span>
+            </button>
+            <button data-level="novice" data-rating="1200">
+                <span class="level-name">Novice</span>
+                <span class="level-range">1000–1400</span>
+            </button>
+            <button data-level="intermediate" data-rating="1600" class="active">
+                <span class="level-name">Intermediate</span>
+                <span class="level-range">1400–1800</span>
+            </button>
+            <button data-level="expert" data-rating="1900">
+                <span class="level-name">Expert</span>
+                <span class="level-range">1800+</span>
+            </button>
+        </div>
+        <button id="btn-settings" class="btn btn-sm btn-llm-keys" title="Configure API keys for Lichess explorer and LLM explanations">Settings</button>
+    </div>
+</header>
+
+<!-- Main Layout -->
+<main class="layout">
+
+    <!-- Left: Board + Move List + Engine -->
+    <section class="board-section">
+        <div class="board-top">
+            <div class="player-bar player-top">
+                <span class="player-name" id="player-top-name">Black</span>
+            </div>
+        </div>
+
+        <div class="board-with-eval">
+            <div class="eval-bar" id="eval-bar">
+                <div class="eval-fill" id="eval-fill"></div>
+                <span class="eval-label" id="eval-label">0.0</span>
+            </div>
+            <div class="board-wrap">
+                <div id="board"></div>
+            </div>
+        </div>
+
+        <div class="board-bottom">
+            <div class="player-bar player-bottom">
+                <span class="player-name" id="player-bottom-name">White</span>
+            </div>
+        </div>
+
+        <div class="board-toolbar">
+            <button id="btn-flip" class="btn btn-sm btn-icon-text" title="Flip board (F)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 16V4m0 0L3 8m4-4l4 4"/><path d="M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
+                Flip
+            </button>
+            <button id="btn-reset" class="btn btn-sm btn-icon-text" title="New game">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Reset
+            </button>
+            <button id="btn-undo" class="btn btn-sm btn-icon-text" title="Undo">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+                Undo
+            </button>
+            <span class="toolbar-sep"></span>
+            <span id="toolbar-opening" class="toolbar-opening" style="display:none;"></span>
+            <span class="toolbar-spacer"></span>
+            <span id="status-text" class="status-text">Loading engine…</span>
+        </div>
+
+        <!-- Move Tree -->
+        <div class="movelist-area" id="movelist-area">
+            <div class="movelist-header">
+                <span class="game-info" id="game-info"></span>
+            </div>
+            <div class="movelist" id="move-list"></div>
+            <div class="movelist-nav">
+                <button id="btn-first" class="btn btn-nav" title="First move">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+                </button>
+                <button id="btn-prev" class="btn btn-nav" title="Previous">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 18 7 12l8.5-6z"/></svg>
+                </button>
+                <button id="btn-next" class="btn btn-nav" title="Next">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 6 17 12l-8.5 6z"/></svg>
+                </button>
+                <button id="btn-last" class="btn btn-nav" title="Last move">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-1.5 6L6 6v12z"/></svg>
+                </button>
+                <div class="nav-spacer"></div>
+                <button id="btn-analyze-game" class="btn btn-accent btn-sm">Analyze Game</button>
+            </div>
+        </div>
+
+        <!-- Engine Lines -->
+        <div class="engine-lines-area">
+            <div class="engine-header">
+                <span class="section-label">Engine</span>
+                <span id="engine-depth" class="depth-badge"></span>
+                <span class="engine-header-spacer"></span>
+                <label class="deep-eval-toggle" title="Analyze to depth 22 (slower but more accurate)">
+                    <input type="checkbox" id="deep-eval-toggle">
+                    <span class="toggle-label">Deep</span>
+                </label>
+            </div>
+            <div id="engine-lines" class="engine-lines">
+                <div class="engine-placeholder">
+                    <span class="dot-loader"><span></span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opening Explorer -->
+        <div class="explorer-area" id="explorer-area" style="display:none;">
+            <div class="explorer-header">
+                <span class="section-label">Opening Explorer</span>
+                <span id="opening-name" class="opening-name" style="display:none;"></span>
+                <span id="explorer-count" class="explorer-count"></span>
+            </div>
+            <div id="explorer-moves" class="explorer-moves"></div>
+        </div>
+
+        <!-- Eval Graph -->
+        <div class="eval-graph-area" id="eval-graph-area" style="display:none;">
+            <canvas id="eval-graph-canvas"></canvas>
+        </div>
+    </section>
+
+    <!-- Right: Tabs Panel -->
+    <section class="analysis-section">
+        <!-- Mobile summary removed — analysis tab shows same info -->
+
+        <div class="panel-tabs">
+            <button class="tab active" data-tab="analysis">Analysis</button>
+            <button class="tab" data-tab="coach">Coach</button>
+        </div>
+
+        <!-- Analysis Tab -->
+        <div class="tab-content active" id="panel-analysis">
+            <div class="tab-scroll-area">
+                <div id="analysis-loading" class="analysis-loading" style="display:none;">
+                    <div class="skeleton skeleton-title"></div>
+                    <div class="skeleton skeleton-bar"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                </div>
+
+                <div id="analysis-content" style="display:none;">
+                    <div class="move-header">
+                        <span class="move-notation" id="move-san"></span>
+                        <span class="quality-pill" id="quality-pill"></span>
+                        <span class="find-inline" id="find-inline" style="display:none;">
+                            <span class="find-inline-pct" id="find-inline-pct"></span>
+                            <span class="find-inline-label" id="find-inline-label"></span>
+                        </span>
+                    </div>
+
+                    <!-- Best move info (for mistakes/blunders — dynamically populated) -->
+                    <div class="best-move-info" id="best-move-info" style="display:none;"></div>
+
+                    <div class="eval-change" id="eval-change">
+                        <div class="eval-box">
+                            <span class="eval-tiny-label">Before</span>
+                            <span class="eval-num" id="eval-before"></span>
+                        </div>
+                        <span class="eval-arrow">&rarr;</span>
+                        <div class="eval-box">
+                            <span class="eval-tiny-label">After</span>
+                            <span class="eval-num" id="eval-after"></span>
+                        </div>
+                        <span class="cp-loss-badge" id="cp-loss" style="display:none;"></span>
+                    </div>
+
+                    <div class="threats-compact" id="threats-area" style="display:none;">
+                        <span class="section-label">Tactics</span>
+                        <div id="threats-list" class="threats-list"></div>
+                    </div>
+
+                    <!-- Rule-based analysis (always shown) -->
+                    <div class="explanation" id="explanation"></div>
+
+                    <!-- AI analysis (shown when LLM configured) -->
+                    <div class="ai-analysis" id="ai-analysis" style="display:none;">
+                        <div class="ai-analysis-header">
+                            <span class="section-label">AI Analysis</span>
+                            <div class="ai-loading-bar" id="ai-loading-bar"><div class="ai-loading-fill"></div></div>
+                        </div>
+                        <div class="ai-analysis-text" id="ai-analysis-text"></div>
+                    </div>
+
+                    <!-- Inline: ask about this move -->
+                    <div class="move-chat-area">
+                        <div id="analysis-move-messages" class="inline-chat-messages"></div>
+                        <div class="move-chat-row">
+                            <input type="text" id="analysis-move-input" placeholder="Ask about this move…" spellcheck="false">
+                            <button id="analysis-move-send" class="chat-send-btn" title="Ask">&#10148;</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="analysis-empty" class="empty-state">
+                    <div class="empty-icon">&#9822;</div>
+                    <p>Play a move or import a game</p>
+                    <p class="empty-hint">Use arrow keys to navigate</p>
+                </div>
+
+                <!-- Chat: explore future moves (at bottom of scroll area) -->
+                <div id="analysis-position-messages" class="inline-chat-messages"></div>
+            </div>
+
+            <div class="position-chat-bar">
+                <button id="analysis-hint-btn" class="hint-btn" title="Get a hint for the next move">Hint</button>
+                <input type="text" id="analysis-position-input" placeholder="Explore next moves…" spellcheck="false">
+                <button id="analysis-position-send" class="chat-send-btn" title="Ask">&#10148;</button>
+            </div>
+        </div>
+
+        <!-- Coach Tab -->
+        <div class="tab-content" id="panel-coach">
+            <div class="tab-scroll-area">
+                <div id="coach-empty" class="empty-state">
+                    <div class="empty-icon">&#127891;</div>
+                    <p>Load a game and click "Analyze Game"</p>
+                    <p class="empty-hint">The coach will review every move</p>
+                </div>
+
+                <div id="coach-loading" style="display:none;">
+                    <div class="coach-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="coach-progress-fill"></div>
+                        </div>
+                        <span class="progress-label" id="coach-progress-label">Analyzing moves…</span>
+                    </div>
+                </div>
+
+                <div id="coach-report" style="display:none;">
+                    <div class="coach-summary">
+                        <div class="accuracy-ring" id="accuracy-ring">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="ring-bg" cx="50" cy="50" r="42"/>
+                                <circle class="ring-fg" id="ring-fg" cx="50" cy="50" r="42"/>
+                            </svg>
+                            <span class="ring-label" id="accuracy-pct"></span>
+                        </div>
+                        <div class="summary-stats">
+                            <div class="stat-row"><span class="dot best"></span><span>Best</span><span id="stat-best" class="stat-num">0</span></div>
+                            <div class="stat-row"><span class="dot good"></span><span>Good</span><span id="stat-good" class="stat-num">0</span></div>
+                            <div class="stat-row"><span class="dot inaccuracy"></span><span>Inaccuracy</span><span id="stat-inaccuracy" class="stat-num">0</span></div>
+                            <div class="stat-row"><span class="dot mistake"></span><span>Mistake</span><span id="stat-mistake" class="stat-num">0</span></div>
+                            <div class="stat-row"><span class="dot blunder"></span><span>Blunder</span><span id="stat-blunder" class="stat-num">0</span></div>
+                        </div>
+                    </div>
+
+                    <div id="coach-moments" class="coach-moments"></div>
+                    <div id="coach-patterns" class="coach-patterns"></div>
+                </div>
+
+                <!-- Ask about move (inline after report) -->
+                <div class="move-chat-area">
+                    <div id="coach-move-messages" class="inline-chat-messages"></div>
+                    <div class="move-chat-row">
+                        <input type="text" id="coach-move-input" placeholder="Ask about this move…" spellcheck="false">
+                        <button id="coach-move-send" class="chat-send-btn" title="Ask">&#10148;</button>
+                    </div>
+                </div>
+
+                <!-- Explore future moves (at bottom of scroll area) -->
+                <div id="coach-position-messages" class="inline-chat-messages"></div>
+            </div>
+
+            <div class="position-chat-bar">
+                <button id="coach-hint-btn" class="hint-btn" title="Get a hint for the next move">Hint</button>
+                <input type="text" id="coach-position-input" placeholder="Explore next moves…" spellcheck="false">
+                <button id="coach-position-send" class="chat-send-btn" title="Ask">&#10148;</button>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- Bottom nav removed — single scrollable view on mobile -->
+
+<!-- Toast container -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- Promotion dialog -->
+<div class="overlay" id="promotion-overlay">
+    <div class="dialog">
+        <h3>Promote to</h3>
+        <div class="promotion-pieces" id="promotion-pieces"></div>
+    </div>
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="settings-modal">
+    <div class="dialog settings-dialog">
+        <div class="dialog-header">
+            <h3>LLM Settings</h3>
+            <button id="settings-close" class="btn btn-sm">&times;</button>
+        </div>
+        <div class="settings-form">
+            <div class="settings-note">Configure your Lichess account for opening explorer and LLM keys for explanations.</div>
+            <div class="lichess-auth-section">
+                <div id="lichess-status" class="lichess-status">
+                    <span id="lichess-status-text">Not connected</span>
+                </div>
+                <button id="btn-lichess-login" class="btn btn-lichess">
+                    <svg width="16" height="16" viewBox="0 0 32 32" fill="currentColor"><path d="M16 0C7.2 0 0 7.2 0 16s7.2 16 16 16 16-7.2 16-16S24.8 0 16 0zm-1.4 25.5l-6.2-6.2 2.8-2.8 3.4 3.4 7.8-7.8 2.8 2.8-10.6 10.6z"/></svg>
+                    Login with Lichess
+                </button>
+                <button id="btn-lichess-logout" class="btn btn-sm btn-muted" style="display:none;">Logout</button>
+            </div>
+            <details class="lichess-token-details">
+                <summary class="settings-hint">Or paste a token manually</summary>
+                <label>Lichess API Token
+                    <input type="text" id="settings-lichess-token" class="apikey-input" placeholder="lip_..." autocomplete="off">
+                </label>
+                <p class="settings-hint" style="margin-top:-4px;"><a href="https://lichess.org/account/oauth/token" target="_blank" style="color:var(--accent);">Get a token here</a> (no scopes needed).</p>
+            </details>
+            <hr style="border:none;border-top:1px solid var(--border);margin:4px 0 8px;">
+            <label>Provider
+                <select id="settings-provider">
+                    <option value="ollama">Ollama (local)</option>
+                    <option value="lmstudio">LM Studio (local)</option>
+                    <option value="claude">Claude (local proxy)</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </label>
+            <label>Base URL
+                <input type="text" id="settings-baseurl" placeholder="http://localhost:11434/v1">
+            </label>
+            <label>API Key
+                <input type="text" id="settings-apikey" class="apikey-input" placeholder="(optional for local)" autocomplete="off">
+            </label>
+            <label>Model
+                <input type="text" id="settings-model" placeholder="llama3.2">
+            </label>
+            <div class="settings-actions">
+                <button id="settings-test" class="btn btn-sm">Test Connection</button>
+                <button id="settings-save" class="btn btn-accent btn-sm">Save</button>
+            </div>
+            <div id="settings-status" class="settings-status"></div>
+            <p class="settings-hint">For local models, use Ollama or LM Studio. For Claude, run a local OpenAI-compatible proxy on port 8000. For cloud APIs, you may need a CORS proxy: <code>npx local-cors-proxy --proxyUrl https://api.openai.com</code></p>
+        </div>
+    </div>
+</div>
+
+<!-- Vendored libraries (loaded as globals, not ES modules) -->
+<script src="/static/lib/jquery-3.7.1.min.js"></script>
+<script src="/static/lib/chessboard-1.0.0.min.js"></script>
+<script src="/static/lib/chess.min.js"></script>
+
+<!-- No mobile nav JS needed — single scrollable view -->
+
+<!-- App (ES module) -->
+<script type="module" src="/static/js/main.js"></script>
+</body>
+</html>
