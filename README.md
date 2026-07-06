@@ -4,7 +4,11 @@ Browser-first chess analysis and AI coaching with Stockfish WASM, game review, t
 
 Live app: https://chesssy.web.app/
 
-Chesssy is built around a simple idea: strong engine lines are useful, but most players need to know whether a move was human-findable, what pattern they missed, and what to try next. The app runs analysis in the browser, turns engine output into coaching signals, and can optionally use an OpenAI-compatible LLM for short explanations.
+I built the first version of Chesssy in early 2025 because engine analysis kept answering a slightly wrong question for me.
+
+When I was learning chess more seriously, Stockfish would often suggest a move that was technically best but impossible for me to understand in a real game. I would click through the next few moves, try to reverse-engineer the idea, and still end up wondering: was this move actually findable for someone around my level, or was it just an engine-only resource?
+
+Chesssy tries to answer the question behind the eval bar: why did the engine want this, what pattern was hidden, and what practical alternative could I have found over the board?
 
 ## What It Does
 
@@ -12,6 +16,7 @@ Chesssy is built around a simple idea: strong engine lines are useful, but most 
 - Step through FEN, PGN, and imported games.
 - Classify moves as best, good, inaccuracy, mistake, or blunder.
 - Score how findable a candidate move is for different skill levels.
+- Suggest more practical alternatives when the engine's top move is too hard to find.
 - Generate full-game coach reports with key moments, quality distribution, and an eval graph.
 - Show Lichess opening explorer data when a token is configured.
 - Retrieve chess theory context from Qdrant through a Cloudflare Worker proxy.
@@ -81,6 +86,31 @@ python scripts/upload_to_qdrant.py
 
 See `.env.example` for local configuration names.
 
+The repo includes a Cloudflare Worker gateway in `cloudflare/qdrant-worker.js`. It can expose a small read-only chess theory search API:
+
+```text
+POST https://<your-worker>.workers.dev/collections/chess_theory/points/query
+```
+
+Example request:
+
+```bash
+curl -X POST "https://<your-worker>.workers.dev/collections/chess_theory/points/query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": {
+      "text": "rook endgame active king",
+      "model": "sentence-transformers/all-minilm-l6-v2"
+    },
+    "limit": 3,
+    "with_payload": true
+  }'
+```
+
+The browser uses this to pull small theory snippets into the explanation context. The Worker handles CORS and keeps the Qdrant key off the client.
+
+See `cloudflare/README.md` for the Worker contract and deployment notes.
+
 ## Security Notes
 
 - Do not commit `.env` or real Qdrant keys.
@@ -109,4 +139,15 @@ Review third-party licenses before redistributing binaries or vendored assets.
 
 ## Why This Exists
 
-Most chess analysis tools explain what the engine wants. Chesssy tries to explain what a player could reasonably have found, why a move was hard, and what pattern to learn from it.
+Most chess analysis tools explain what the engine wants. That is useful, but it is not always how humans improve.
+
+When you are learning openings, middlegames, or endgames, you need more than `+0.7` and a principal variation. You need to know the reason behind the move, the idea hidden two moves later, and whether the move was realistically visible from your current strength.
+
+Chesssy is built for that gap. It separates engine-best from human-findable, then uses tactical tags, theory retrieval, and short explanations to answer:
+
+- Why did the engine choose this?
+- What was the actual idea?
+- Could I have found this in a real game?
+- If not, what was a more practical move I could have played?
+
+The goal is not to replace strong engines. The goal is to make engine analysis feel more like a coach: still accurate, but aware of the player sitting in front of it.
